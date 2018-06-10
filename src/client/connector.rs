@@ -3,7 +3,7 @@ use std::net::Shutdown;
 use std::time::{Duration, Instant};
 use std::{fmt, io, mem, time};
 
-use actix::resolver::{Connect as ResolveConnect, Connector, ConnectorError};
+use actix::resolver::{Connect as ResolveConnect, Connector, ConnectorError, ResolverError};
 use actix::{
     fut, Actor, ActorContext, ActorFuture, ActorResponse, Addr, AsyncContext, Context,
     ContextFutureSpawner, Handler, Message, Recipient, StreamHandler, Supervised,
@@ -157,7 +157,7 @@ pub enum ClientConnectorError {
 impl From<ConnectorError> for ClientConnectorError {
     fn from(err: ConnectorError) -> ClientConnectorError {
         match err {
-            ConnectorError::Timeout => ClientConnectorError::Timeout,
+            ResolverError::Timeout => ClientConnectorError::Timeout,
             _ => ClientConnectorError::Connector(err),
         }
     }
