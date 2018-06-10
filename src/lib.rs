@@ -145,6 +145,11 @@ extern crate native_tls;
 #[cfg(feature = "tls")]
 extern crate tokio_tls;
 
+#[cfg(feature = "rustls-tls")]
+extern crate rustls;
+#[cfg(feature = "rustls-tls")]
+extern crate tokio_rustls;
+
 #[cfg(feature = "openssl")]
 extern crate openssl;
 #[cfg(feature = "openssl")]

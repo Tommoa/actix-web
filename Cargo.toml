@@ -31,6 +31,9 @@ default = ["session", "brotli", "flate2-c"]
 # tls
 tls = ["native-tls", "tokio-tls"]
 
+# rustls
+rustls-tls = ["rustls", "tokio-rustls"]
+
 # openssl
 alpn = ["openssl", "tokio-openssl"]
 
@@ -47,7 +50,7 @@ flate2-c = ["flate2/miniz-sys"]
 flate2-rust = ["flate2/rust_backend"]
 
 [package.metadata.docs.rs]
-features = ["tls", "alpn", "session", "brotli", "flate2-c"]
+features = ["tls", "rustls-tls", "alpn", "session", "brotli", "flate2-c"]
 
 [dependencies]
 #actix = "^0.6.0"
@@ -99,6 +102,10 @@ tokio-reactor = "0.1"
 # native-tls
 native-tls = { version="0.1", optional = true }
 tokio-tls = { version="0.1", optional = true }
+
+# rustls
+rustls = { version = "0.11", optional = true }
+tokio-rustls = { version = "0.4", optional = true }
 
 # openssl
 openssl = { version="0.10", optional = true }

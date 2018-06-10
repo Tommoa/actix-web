@@ -8,7 +8,7 @@ use tokio::executor::current_thread;
 use tokio_reactor::Handle;
 use tokio_tcp::TcpStream;
 
-#[cfg(any(feature = "tls", feature = "alpn"))]
+#[cfg(any(feature = "tls", feature = "rustls-tls", feature = "alpn"))]
 use futures::future;
 
 #[cfg(feature = "tls")]
@@ -20,6 +20,13 @@ use tokio_tls::TlsAcceptorExt;
 use openssl::ssl::SslAcceptor;
 #[cfg(feature = "alpn")]
 use tokio_openssl::SslAcceptorExt;
+
+#[cfg(feature = "rustls-tls")]
+use std::sync::Arc;
+#[cfg(feature = "rustls-tls")]
+use rustls::ServerConfig;
+#[cfg(feature = "rustls-tls")]
+use tokio_rustls::ServerConfigExt;
 
 use actix::msgs::StopArbiter;
 use actix::{Actor, Arbiter, AsyncContext, Context, Handler, Message, Response};
@@ -167,6 +174,8 @@ pub(crate) enum StreamHandlerType {
     Normal,
     #[cfg(feature = "tls")]
     Tls(TlsAcceptor),
+    #[cfg(feature = "rustls-tls")]
+    Rustls(Arc<ServerConfig>),
     #[cfg(feature = "alpn")]
     Alpn(SslAcceptor),
 }
@@ -205,7 +214,30 @@ impl StreamHandlerType {
                         future::result(Ok(()))
                     },
                 ));
-            }
+            },
+            #[cfg(feature = "rustls-tls")]
+            StreamHandlerType::Rustls(ref config) => {
+                let Conn {
+                    io, peer, http2, ..
+                } = msg;
+                let _ = io.set_nodelay(true);
+                let io = TcpStream::from_std(io, &Handle::default())
+                    .expect("failed to associate TCP stream");
+
+                current_thread::spawn(config.accept_async(io).then(
+                    move |res| {
+                        match res {
+                            Ok(io) => current_thread::spawn(HttpChannel::new(
+                                h, io, peer, http2,
+                            )),
+                            Err(err) => {
+                                trace!("Error during handling rustls connection: {}", err)
+                            }
+                        };
+                        future::result(Ok(()))
+                    },
+                ));
+            },
             #[cfg(feature = "alpn")]
             StreamHandlerType::Alpn(ref acceptor) => {
                 let Conn { io, peer, .. } = msg;
@@ -244,6 +276,8 @@ impl StreamHandlerType {
             StreamHandlerType::Normal => "http",
             #[cfg(feature = "tls")]
             StreamHandlerType::Tls(_) => "https",
+            #[cfg(feature = "rustls-tls")]
+            StreamHandlerType::Rustls(_) => "https",
             #[cfg(feature = "alpn")]
             StreamHandlerType::Alpn(_) => "https",
         }

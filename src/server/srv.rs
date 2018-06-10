@@ -19,6 +19,9 @@ use tokio_io::{AsyncRead, AsyncWrite};
 #[cfg(feature = "tls")]
 use native_tls::TlsAcceptor;
 
+#[cfg(feature = "rustls-tls")]
+use rustls::ServerConfig;
+
 #[cfg(feature = "alpn")]
 use openssl::ssl::{AlpnError, SslAcceptorBuilder};
 
@@ -256,6 +259,21 @@ where
         self
     }
 
+    #[cfg(feature = "rustls-tls")]
+    /// Use listener for accepting incoming tls connection requests
+    ///
+    /// HttpServer does not change any configuration for TcpListener,
+    /// it needs to be configured before passing it to listen() method.
+    pub fn listen_rustls(mut self, lst: net::TcpListener, config: Arc<ServerConfig>) -> Self {
+        let addr = lst.local_addr().unwrap();
+        self.sockets.push(Socket {
+            addr,
+            lst,
+            tp: StreamHandlerType::Rustls(config.clone()),
+        });
+        self
+    }
+
     #[cfg(feature = "alpn")]
     /// Use listener for accepting incoming tls connection requests
     ///
@@ -329,6 +347,21 @@ where
         let sockets = self.bind2(addr)?;
         self.sockets.extend(sockets.into_iter().map(|mut s| {
             s.tp = StreamHandlerType::Tls(acceptor.clone());
+            s
+        }));
+        Ok(self)
+    }
+
+    #[cfg(feature = "rustls-tls")]
+    /// The tls socket address to bind
+    ///
+    /// To bind multiple addresses, this method can be called multiple times.
+    pub fn bind_rustls<S: net::ToSocketAddrs>(
+        mut self, addr: S, config: Arc<ServerConfig>
+    ) -> io::Result<Self> {
+        let sockets = self.bind2(addr)?;
+        self.sockets.extend(sockets.into_iter().map(|mut s| {
+            s.tp = StreamHandlerType::Rustls(config.clone());
             s
         }));
         Ok(self)
@@ -691,11 +724,11 @@ where
     fn handle(&mut self, _msg: Conn<T>, _: &mut Context<Self>) -> Self::Result {
         unimplemented!();
         /*Arbiter::spawn(HttpChannel::new(
-            Rc::clone(self.h.as_ref().unwrap()),
-            msg.io,
-            msg.peer,
-            msg.http2,
-        ));*/
+        Rc::clone(self.h.as_ref().unwrap()),
+        msg.io,
+        msg.peer,
+        msg.http2,
+    ));*/
     }
 }
 
@@ -918,7 +951,7 @@ fn start_accept_thread(
                                             error!("Can not resume socket accept process: {}", err);
                                         } else {
                                             info!("Accepting connections on {} has been resumed",
-                                              addr);
+                                                  addr);
                                         }
                                     }
                                 }

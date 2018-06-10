@@ -265,3 +265,26 @@ impl IoStream for TlsStream<TcpStream> {
         self.get_mut().get_mut().set_linger(dur)
     }
 }
+
+#[cfg(feature = "rustls-tls")]
+use tokio_rustls::TlsStream;
+#[cfg(feature = "rustls-tls")]
+use rustls::ServerSession;
+
+#[cfg(feature = "rustls-tls")]
+impl IoStream for TlsStream<TcpStream, ServerSession> {
+    #[inline]
+    fn shutdown(&mut self, how: Shutdown) -> io::Result<()> {
+        TcpStream::shutdown(self.get_mut().0, how)
+    }
+
+    #[inline]
+    fn set_nodelay(&mut self, nodelay: bool) -> io::Result<()> {
+        self.get_mut().0.set_nodelay(nodelay)
+    }
+
+    #[inline]
+    fn set_linger(&mut self, dur: Option<time::Duration>) -> io::Result<()> {
+        self.get_mut().0.set_linger(dur)
+    }
+}
